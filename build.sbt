@@ -24,7 +24,6 @@ val dependencySettings = Seq(
       "com.typesafe.slick"        %%  "slick"                 % "2.1.0",
       "com.blinkbox.books"        %%  "common-config"         % "1.0.0",
       "org.json4s"                %%  "json4s-native"         % json4sV,
-      //"com.blinkbox.books"        %%  "common-json"           % "0.2.0",
       "com.blinkbox.books"        %%  "common-scala-test"     % "0.3.0"   % "test",
       "io.spray"                  %   "spray-testkit"         % sprayV    % "test"
     )
