@@ -2,23 +2,27 @@ package com.blinkbox.books.midas
 
 import akka.actor.{ActorRefFactory, ActorSystem}
 import akka.util.Timeout
-import com.blinkbox.books.config.Configuration
-import com.typesafe.scalalogging.slf4j.StrictLogging
-import org.json4s.{FieldSerializer, DefaultFormats, Formats}
-import org.json4s.FieldSerializer.{renameTo, renameFrom}
+import org.json4s.FieldSerializer.{renameFrom, renameTo}
+import org.json4s.{DefaultFormats, FieldSerializer}
 import spray.client.pipelining._
-import spray.http.{OAuth2BearerToken, HttpResponse, HttpRequest, HttpCredentials}
-import spray.httpx.{Json4sJacksonSupport, UnsuccessfulResponseException}
+import spray.http._
 import spray.httpx.unmarshalling._
+import spray.httpx.{Json4sJacksonSupport, UnsuccessfulResponseException}
 
 import scala.concurrent.{ExecutionContext, Future}
 
+/**
+ * Basic API for Spray client requests.
+ */
 trait Client {
   def unitRequest(req: HttpRequest, credentials: Option[HttpCredentials]): Future[Unit]
   def dataRequest[T : FromResponseUnmarshaller](req: HttpRequest, credentials: Option[HttpCredentials]): Future[T]
 }
 
-trait SprayClient extends Client {
+/**
+ * Trait that provides common implementation of request handling and response parsing.
+ */
+trait SprayClient extends Client with Json4sJacksonSupport {
   val config: MidasConfig
   val system: ActorSystem
   val ec: ExecutionContext
@@ -26,6 +30,8 @@ trait SprayClient extends Client {
   implicit lazy val _timeout = Timeout(config.timeout)
   implicit lazy val _system = system
   implicit lazy val _ec = ec
+
+  implicit def json4sJacksonFormats = DefaultFormats + ErrorMessage.errorMessageSerializer
 
   protected def doSendReceive(implicit refFactory: ActorRefFactory, ec: ExecutionContext): SendReceive = sendReceive(refFactory, ec)
 
@@ -46,58 +52,39 @@ trait SprayClient extends Client {
   override def unitRequest(req: HttpRequest, credentials: Option[HttpCredentials]): Future[Unit] = unitPipeline(credentials)(req)
 
   override def dataRequest[T : FromResponseUnmarshaller](req: HttpRequest, credentials: Option[HttpCredentials]): Future[T] =
-    dataPipeline(credentials).apply(req) // TODO: why do I need apply here?
-}
-
-class DefaultClient(val config: MidasConfig)(implicit val ec: ExecutionContext, val system: ActorSystem) extends SprayClient
-
-case class Balance(amount: BigDecimal)
-
-trait AccountCreditService {
-  /**
-   *
-   * @param accessToken SSO access token
-   * @return a future with a successful result or an Exception. Any exception can be thrown; known exceptions are:
-   *         ConnectionException
-   *         NotFoundException
-   *         UnauthorizedException
-   */
-  def balance(implicit accessToken: String): Future[Balance]
-}
-
-class DefaultAccountCreditService(config: MidasConfig, client: Client)(implicit ec: ExecutionContext)
-  extends AccountCreditService with Json4sJacksonSupport with StrictLogging {
-
-  val balanceSerializer = FieldSerializer[Balance](renameTo("amount", "Balance"), renameFrom("Balance", "amount"))
-
-  override implicit def json4sJacksonFormats: Formats = DefaultFormats + balanceSerializer
-
-  val serviceBase = config.url
-
-  override def balance(implicit accessToken: String): Future[Balance] = {
-    val req = Get(s"$serviceBase/api/wallet/balance")
-    client.dataRequest[Balance](req, Some(OAuth2BearerToken(accessToken))).transform(identity, exceptionTransformer)
-  }
+    dataPipeline(credentials).apply(req)  // TODO: why do I need apply here?
+      .transform(identity, exceptionTransformer)
 
   def exceptionTransformer: Throwable => Throwable = {
-    case ex => ex
+    case ex: UnsuccessfulResponseException if ex.response.status == StatusCodes.Unauthorized =>
+      new UnauthorizedException(parseErrorMessage(ex.response.entity), ex)
+    case ex: UnsuccessfulResponseException if ex.response.status == StatusCodes.NotFound =>
+      new NotFoundException(parseErrorMessage(ex.response.entity), ex)
+    case other => other
   }
 
+  private def parseErrorMessage(entity: HttpEntity): ErrorMessage =
+    entity.as[ErrorMessage].fold[ErrorMessage](err => ErrorMessage(s"Cannot parse error message: ${entity.asString}"), identity)
 }
 
-object TestApp extends App with Configuration {
-  val appConfig = MidasConfig(config)
+/**
+ * Concrete implementation of Midas client.
+ */
+class DefaultClient(val config: MidasConfig)(implicit val ec: ExecutionContext, val system: ActorSystem) extends SprayClient
 
-  implicit val system = ActorSystem("test")
-  implicit val ec = system.dispatcher
+/**
+ * Common error message response for MIDAS responses.
+ */
+case class ErrorMessage(message: String)
 
-  val service = new DefaultAccountCreditService(appConfig, new DefaultClient(appConfig))
-
-  val accessToken = "eyJhbGciOiJFUzI1NiJ9.eyJzY3AiOlsic3NvOm1vdmllcyJdLCJleHAiOjE0MDkxNTY2MTAsInN1YiI6IjU2MUMxQzgwLUQxNjYtNEZDMy04NjY1LTBEMThBODUzODVGNiIsInJpZCI6IjFGRjczRjMzLUZCMEYtNDQ2NC05NkZGLTA0OEVFQjgzQ0QyRCIsImxuayI6W10sInNydiI6Im1vdmllcyIsInJvbCI6W10sInRrdCI6ImFjY2VzcyIsImlhdCI6MTQwOTE1NDgxMH0.VnhuEFXTH_2AeZMqC8KfoEJl_1gw26SJ-OMaTm095-Rx2sHzEKPzuymcnNGYl56GJU2mf3I8EVUZw3PPsKLgOw"
-
-  service.balance(accessToken) onComplete {
-    case res => println(res)
-  }
+object ErrorMessage {
+  val errorMessageSerializer = FieldSerializer[ErrorMessage](renameTo("message", "Message"), renameFrom("Message", "message"))
 }
+
+
+// Exceptions raised by client API.
+class NotFoundException(val error: ErrorMessage, cause: Throwable = null) extends RuntimeException(error.toString, cause)
+class UnauthorizedException(val error: ErrorMessage, cause: Throwable = null) extends RuntimeException(error.toString, cause)
+
 
 
