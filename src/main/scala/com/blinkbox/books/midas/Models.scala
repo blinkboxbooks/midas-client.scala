@@ -1,4 +1,6 @@
 package com.blinkbox.books.midas
 
-case class Balance(amount: BigDecimal)
+class Balance(val amount: BigDecimal) extends AnyVal
+
+class SsoAccessToken(val value: String) extends AnyVal
 

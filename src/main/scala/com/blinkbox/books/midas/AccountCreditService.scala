@@ -23,7 +23,7 @@ trait AccountCreditService {
    *         NotFoundException
    *         UnauthorizedException
    */
-  def balance(implicit accessToken: String): Future[Balance]
+  def balance(implicit accessToken: SsoAccessToken): Future[Balance]
 }
 
 /**
@@ -38,9 +38,8 @@ class DefaultAccountCreditService(config: MidasConfig, client: Client)(implicit 
 
   val serviceBase = config.url
 
-  override def balance(implicit accessToken: String): Future[Balance] = {
+  override def balance(implicit accessToken: SsoAccessToken): Future[Balance] = {
     val req = Get(s"$serviceBase/api/wallet/balance")
-    client.dataRequest[Balance](req, Some(OAuth2BearerToken(accessToken)))
+    client.dataRequest[Balance](req, Some(OAuth2BearerToken(accessToken.value)))
   }
 }
-

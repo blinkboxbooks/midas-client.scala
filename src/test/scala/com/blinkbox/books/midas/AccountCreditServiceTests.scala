@@ -55,35 +55,35 @@ class AccountCreditServiceTests extends FlatSpec with ScalaFutures with FailHelp
   "An account service client" should "return a valid account balance" in new TestEnvironment {
     provideResponse(StatusCodes.OK, """{"Balance":10.0}""")
 
-    whenReady(service.balance("someToken")) { res =>
-      assert(res == Balance(BigDecimal("10.0")))
-      verify(mockSendReceive).apply(Get(s"${appConfig.url}/api/wallet/balance").withHeaders(Authorization(OAuth2BearerToken("someToken"))))
+    whenReady(service.balance(new SsoAccessToken("token"))) { res =>
+      assert(res == new Balance(BigDecimal("10.0")))
+      verify(mockSendReceive).apply(Get(s"${appConfig.url}/api/wallet/balance").withHeaders(Authorization(OAuth2BearerToken("token"))))
     }
   }
 
   it should "should pass on connection exceptions that happen during requests" in new TestEnvironment {
     provideErrorResponse(new ConnectionException("message"))
-    failingWith[ConnectionException](service.balance("someToken"))
+    failingWith[ConnectionException](service.balance(new SsoAccessToken("token")))
   }
 
   it should "throw an UnauthorizedException when getting account balance with invalid access token" in new TestEnvironment {
     provideResponse(StatusCodes.Unauthorized, """{"Message":"Jwt10305: Lifetime validation failed. The token is expired.\nValidTo: '08/27/2014 16:36:00'\nCurrent time: '08/28/2014 15:11:59'."}""")
 
-    val ex = failingWith[UnauthorizedException](service.balance("someToken"))
+    val ex = failingWith[UnauthorizedException](service.balance(new SsoAccessToken("token")))
     assert(ex.error == ErrorMessage("Jwt10305: Lifetime validation failed. The token is expired.\nValidTo: '08/27/2014 16:36:00'\nCurrent time: '08/28/2014 15:11:59'."))
   }
 
   it should "throw a NotFoundException when getting account balance for a user that has no wallet" in new TestEnvironment {
     provideResponse(StatusCodes.NotFound, """{"Message": "Wallet not found"}""")
 
-    val ex = failingWith[NotFoundException](service.balance("someToken"))
+    val ex = failingWith[NotFoundException](service.balance(new SsoAccessToken("token")))
     assert(ex.error == ErrorMessage("Wallet not found"))
   }
 
   it should "return the response content when an error response can't be parsed" in new TestEnvironment {
     provideResponse(StatusCodes.NotFound, "This is not a valid JSON error message")
 
-    val ex = failingWith[NotFoundException](service.balance("someToken"))
+    val ex = failingWith[NotFoundException](service.balance(new SsoAccessToken("token")))
     assert(ex.error == ErrorMessage("Cannot parse error message: This is not a valid JSON error message"))
   }
 }
