@@ -12,7 +12,7 @@ case class MidasConfig(url: URL, timeout: FiniteDuration)
 
 object MidasConfig {
   def apply(config: Config): MidasConfig = MidasConfig(
-    url = config.getHttpUrl("service.midas.api.public.internalUrl"),
-    timeout = config.getDuration("service.midas.api.public.timeout", TimeUnit.MILLISECONDS).millis
+    url = config.getHttpUrl("groupService.midas.api.public.internalUrl"),
+    timeout = config.getDuration("groupService.midas.api.public.timeout", TimeUnit.MILLISECONDS).millis
   )
 }
