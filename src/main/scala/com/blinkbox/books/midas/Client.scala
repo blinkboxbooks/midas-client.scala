@@ -28,9 +28,9 @@ trait SprayClient extends Client with Json4sJacksonSupport {
   val system: ActorSystem
   val ec: ExecutionContext
 
-  implicit lazy val _timeout = Timeout(config.timeout)
-  implicit lazy val _system = system
-  implicit lazy val _ec = ec
+  implicit lazy val timeout = Timeout(config.timeout)
+  implicit lazy val sys = system
+  implicit lazy val executionContext = ec
 
   implicit def json4sJacksonFormats = DefaultFormats + ErrorMessage.errorMessageSerializer
 
@@ -53,7 +53,7 @@ trait SprayClient extends Client with Json4sJacksonSupport {
   override def unitRequest(req: HttpRequest, credentials: Option[HttpCredentials]): Future[Unit] = unitPipeline(credentials)(req)
 
   override def dataRequest[T : FromResponseUnmarshaller](req: HttpRequest, credentials: Option[HttpCredentials]): Future[T] =
-    dataPipeline(credentials).apply(req)  // TODO: why do I need apply here?
+    dataPipeline(credentials).apply(req)
       .transform(identity, exceptionTransformer)
 
   def exceptionTransformer: Throwable => Throwable = {
@@ -82,10 +82,6 @@ object ErrorMessage {
   val errorMessageSerializer = FieldSerializer[ErrorMessage](renameTo("message", "Message"), renameFrom("Message", "message"))
 }
 
-
 // Exceptions raised by client API.
 class NotFoundException(val error: ErrorMessage, cause: Throwable = null) extends RuntimeException(error.toString, cause)
 class UnauthorizedException(val error: ErrorMessage, cause: Throwable = null) extends RuntimeException(error.toString, cause)
-
-
-
