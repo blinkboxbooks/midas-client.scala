@@ -6,6 +6,7 @@ import org.json4s.FieldSerializer.{renameFrom, renameTo}
 import org.json4s.{DefaultFormats, FieldSerializer}
 import spray.client.pipelining._
 import spray.http._
+import spray.http.StatusCodes._
 import spray.httpx.unmarshalling._
 import spray.httpx.{Json4sJacksonSupport, UnsuccessfulResponseException}
 
@@ -56,9 +57,9 @@ trait SprayClient extends Client with Json4sJacksonSupport {
       .transform(identity, exceptionTransformer)
 
   def exceptionTransformer: Throwable => Throwable = {
-    case ex: UnsuccessfulResponseException if ex.response.status == StatusCodes.Unauthorized =>
+    case ex: UnsuccessfulResponseException if ex.response.status == Unauthorized =>
       new UnauthorizedException(parseErrorMessage(ex.response.entity), ex)
-    case ex: UnsuccessfulResponseException if ex.response.status == StatusCodes.NotFound =>
+    case ex: UnsuccessfulResponseException if ex.response.status == NotFound =>
       new NotFoundException(parseErrorMessage(ex.response.entity), ex)
     case other => other
   }
