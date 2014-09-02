@@ -56,7 +56,7 @@ class AccountCreditServiceTests extends FlatSpec with ScalaFutures with FailHelp
     provideResponse(StatusCodes.OK, """{"Balance":10.0}""")
 
     whenReady(service.balance(new SsoAccessToken("token"))) { res =>
-      assert(res == new Balance(BigDecimal("10.0")))
+      assert(res == Balance(BigDecimal("10.0")))
       verify(mockSendReceive).apply(Get(s"${appConfig.url}/api/wallet/balance").withHeaders(Authorization(OAuth2BearerToken("token"))))
     }
   }
