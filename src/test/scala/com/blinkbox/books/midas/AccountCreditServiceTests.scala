@@ -71,6 +71,7 @@ class AccountCreditServiceTests extends FlatSpec with ScalaFutures with FailHelp
 
     val ex = failingWith[UnauthorizedException](service.balance(new SsoAccessToken("token")))
     assert(ex.error == ErrorMessage("Jwt10305: Lifetime validation failed. The token is expired.\nValidTo: '08/27/2014 16:36:00'\nCurrent time: '08/28/2014 15:11:59'."))
+    assert(ex.challenge == HttpChallenge("Bearer", realm = "", Map("not" -> "available")))
   }
 
   it should "throw a NotFoundException when getting account balance for a user that has no wallet" in new TestEnvironment {
@@ -87,5 +88,3 @@ class AccountCreditServiceTests extends FlatSpec with ScalaFutures with FailHelp
     assert(ex.error == ErrorMessage("Cannot parse error message: This is not a valid JSON error message"))
   }
 }
-
-
