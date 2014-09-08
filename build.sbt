@@ -22,8 +22,8 @@ val dependencySettings = Seq(
       "com.typesafe.akka"         %%  "akka-slf4j"            % akkaV,
       "com.blinkbox.books"        %%  "common-config"         % "1.0.2",
       "com.blinkbox.books"        %%  "common-json"           % "0.2.1",
-      "com.blinkbox.books"        %%  "common-scala-test"     % "0.3.0"   % "test",
-      "io.spray"                  %   "spray-testkit"         % sprayV    % "test"
+      "com.blinkbox.books"        %%  "common-scala-test"     % "0.3.0"   % Test,
+      "io.spray"                  %   "spray-testkit"         % sprayV    % Test
     )
   }
 )

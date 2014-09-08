@@ -67,10 +67,10 @@ class AccountCreditServiceTests extends FlatSpec with ScalaFutures with FailHelp
   }
 
   it should "throw an UnauthorizedException when getting account balance with invalid access token" in new TestEnvironment {
-    provideResponse(StatusCodes.Unauthorized, """{"Message":"Jwt10305: Lifetime validation failed. The token is expired.\nValidTo: '08/27/2014 16:36:00'\nCurrent time: '08/28/2014 15:11:59'."}""")
+    provideResponse(StatusCodes.Unauthorized, """{"Message":"Token is invalid or expired"}""")
 
     val ex = failingWith[UnauthorizedException](service.balance(new SsoAccessToken("token")))
-    assert(ex.error == ErrorMessage("Jwt10305: Lifetime validation failed. The token is expired.\nValidTo: '08/27/2014 16:36:00'\nCurrent time: '08/28/2014 15:11:59'."))
+    assert(ex.error == ErrorMessage("Token is invalid or expired"))
     assert(ex.challenge == HttpChallenge("Bearer", realm = "", Map("not" -> "available")))
   }
 
