@@ -11,6 +11,7 @@ import org.scalatest.FlatSpec
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.junit.JUnitRunner
 import org.scalatest.time.{Millis, Seconds, Span}
+import spray.can.Http.ConnectionException
 import spray.client.pipelining.SendReceive
 import spray.http.HttpHeaders.Authorization
 import spray.http._
@@ -38,8 +39,17 @@ class ClubcardServiceTests extends FlatSpec with ScalaFutures with FailHelper wi
     val mockSendReceive = mock[SendReceive]
     val service = new DefaultClubcardService(appConfig, client)
 
-    def provideResponse(statusCode: StatusCode, content: String): Unit = {
+    val validCardNumber = ClubcardNumber("634004553765751581")
+    val validToken = SsoAccessToken("validToken")
+    val invalidToken = SsoAccessToken("invalidToken")
+
+    def provideJsonResponse(statusCode: StatusCode, content: String): Unit = {
       val resp = HttpResponse(statusCode, HttpEntity(MediaTypes.`application/json`, content))
+      when(mockSendReceive.apply(any[HttpRequest])).thenReturn(Future.successful(resp))
+    }
+
+    def provideResponse(statusCode: StatusCode) = {
+      val resp = HttpResponse(statusCode)
       when(mockSendReceive.apply(any[HttpRequest])).thenReturn(Future.successful(resp))
     }
 
@@ -52,16 +62,43 @@ class ClubcardServiceTests extends FlatSpec with ScalaFutures with FailHelper wi
   }
 
   "A clubcard service client" should "return a valid clubcard details" in new TestEnvironment {
-    provideResponse(StatusCodes.OK, """{
+    provideJsonResponse(StatusCodes.OK, """{
         |"DisplayName":"testName",
         |"CardNumber":"634004553765751581",
         |"IsPrimaryCard":true,
         |"IsPrivilegeCard":false
         |}""".stripMargin)
 
-    whenReady(service.clubcardDetails(ClubcardNumber("634004553765751581"))(new SsoAccessToken("token"))) { res =>
+    whenReady(service.clubcardDetails(validCardNumber)(validToken)) { res =>
       assert(res == Clubcard(ClubcardNumber("634004553765751581"), "testName", primary = true))
       verify(mockSendReceive).apply(Get(s"${appConfig.url}/api/wallet/clubcards/634004553765751581").withHeaders(Authorization(OAuth2BearerToken("token"))))
     }
+  }
+
+  it should "should pass on connection exceptions that happen during requests" in new TestEnvironment {
+    provideErrorResponse(new ConnectionException("message"))
+    failingWith[ConnectionException](service.clubcardDetails(validCardNumber)(validToken))
+  }
+
+  it should "throw an UnauthorizedException when getting clubcard details with invalid access token" in new TestEnvironment {
+    provideJsonResponse(StatusCodes.Unauthorized, """{"Message":"Token is invalid or expired"}""")
+
+    val ex = failingWith[UnauthorizedException](service.clubcardDetails(validCardNumber)(invalidToken))
+    assert(ex.error == ErrorMessage("Token is invalid or expired"))
+    assert(ex.challenge == HttpChallenge("Bearer", realm = "", Map("not" -> "available")))
+  }
+
+  it should "throw a NotFoundException when getting clubcard details for a user that has no wallet" in new TestEnvironment {
+    provideJsonResponse(StatusCodes.NotFound, """{"Message": "Wallet not found"}""")
+
+    val ex = failingWith[NotFoundException](service.clubcardDetails(validCardNumber)(validToken))
+    assert(ex.error == ErrorMessage("Wallet not found"))
+  }
+
+  it should "throw a NotFoundException when getting clubcard details that is not in user's wallet" in new TestEnvironment {
+    provideResponse(StatusCodes.NotFound)
+
+    val ex = failingWith[NotFoundException](service.clubcardDetails(validCardNumber)(validToken))
+    assert(ex.error == ErrorMessage.Empty)
   }
 }
