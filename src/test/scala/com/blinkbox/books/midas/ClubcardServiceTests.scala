@@ -1,67 +1,27 @@
 package com.blinkbox.books.midas
 
-import java.net.URL
-
-import akka.actor.{ActorRefFactory, ActorSystem}
 import com.blinkbox.books.test.{FailHelper, MockitoSyrup}
 import org.junit.runner.RunWith
-import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.scalatest.FlatSpec
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.junit.JUnitRunner
 import org.scalatest.time.{Millis, Seconds, Span}
 import spray.can.Http.ConnectionException
-import spray.client.pipelining.SendReceive
 import spray.http.HttpHeaders.Authorization
 import spray.http._
 import spray.httpx.RequestBuilding.Get
-import spray.httpx.unmarshalling.Deserializer
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future}
 
 @RunWith(classOf[JUnitRunner])
 class ClubcardServiceTests extends FlatSpec with ScalaFutures with FailHelper with MockitoSyrup {
 
-  val appConfig = MidasConfig(new URL("https://myfavoritewebsite.com"), 1.second)
-  implicit def deserializer = any[Deserializer[HttpResponse, Balance]]
-  implicit val system = ActorSystem("test-system")
-
-  // Settings for whenReady/Waiter. We override the default values because the first call to the mock
-  // Feature service takes longer than the default values.
+  // Settings for whenReady/Waiter.
   implicit val defaultPatience = PatienceConfig(timeout = scaled(Span(5, Seconds)), interval = scaled(Span(5, Millis)))
 
-  class TestEnvironment {
 
-    val client = new TestClient(appConfig)
-    val mockSendReceive = mock[SendReceive]
-    val service = new DefaultClubcardService(appConfig, client)
-
-    val validCardNumber = ClubcardNumber("634004553765751581")
-    val validToken = SsoAccessToken("validToken")
-    val invalidToken = SsoAccessToken("invalidToken")
-
-    def provideJsonResponse(statusCode: StatusCode, content: String): Unit = {
-      val resp = HttpResponse(statusCode, HttpEntity(MediaTypes.`application/json`, content))
-      when(mockSendReceive.apply(any[HttpRequest])).thenReturn(Future.successful(resp))
-    }
-
-    def provideResponse(statusCode: StatusCode) = {
-      val resp = HttpResponse(statusCode)
-      when(mockSendReceive.apply(any[HttpRequest])).thenReturn(Future.successful(resp))
-    }
-
-    def provideErrorResponse(e: Throwable): Unit =
-      when(mockSendReceive.apply(any[HttpRequest])).thenReturn(Future.failed(e))
-
-    class TestClient(val config: MidasConfig)(implicit val ec: ExecutionContext, val system: ActorSystem) extends SprayClient {
-      override def doSendReceive(implicit refFactory: ActorRefFactory, ec: ExecutionContext): SendReceive = mockSendReceive
-    }
-  }
-
-  "A clubcard service client" should "return a valid clubcard details" in new TestEnvironment {
+  "A clubcard service client" should "return a valid clubcard details" in new ClubcardServiceEnvironment {
     provideJsonResponse(StatusCodes.OK, """{
         |"DisplayName":"testName",
         |"CardNumber":"634004553765751581",
@@ -75,12 +35,12 @@ class ClubcardServiceTests extends FlatSpec with ScalaFutures with FailHelper wi
     }
   }
 
-  it should "should pass on connection exceptions that happen during requests" in new TestEnvironment {
+  it should "should pass on connection exceptions that happen during requests" in new ClubcardServiceEnvironment {
     provideErrorResponse(new ConnectionException("message"))
     failingWith[ConnectionException](service.clubcardDetails(validCardNumber)(validToken))
   }
 
-  it should "throw an UnauthorizedException when getting clubcard details with invalid access token" in new TestEnvironment {
+  it should "throw an UnauthorizedException when getting clubcard details with invalid access token" in new ClubcardServiceEnvironment {
     provideJsonResponse(StatusCodes.Unauthorized, """{"Message":"Token is invalid or expired"}""")
 
     val ex = failingWith[UnauthorizedException](service.clubcardDetails(validCardNumber)(invalidToken))
@@ -88,14 +48,14 @@ class ClubcardServiceTests extends FlatSpec with ScalaFutures with FailHelper wi
     assert(ex.challenge == HttpChallenge("Bearer", realm = "", Map("not" -> "available")))
   }
 
-  it should "throw a NotFoundException when getting clubcard details for a user that has no wallet" in new TestEnvironment {
+  it should "throw a NotFoundException when getting clubcard details for a user that has no wallet" in new ClubcardServiceEnvironment {
     provideJsonResponse(StatusCodes.NotFound, """{"Message": "Wallet not found"}""")
 
     val ex = failingWith[NotFoundException](service.clubcardDetails(validCardNumber)(validToken))
     assert(ex.error == Some(ErrorMessage("Wallet not found")))
   }
 
-  it should "throw a NotFoundException when getting clubcard details that is not in user's wallet" in new TestEnvironment {
+  it should "throw a NotFoundException when getting clubcard details that is not in user's wallet" in new ClubcardServiceEnvironment {
     provideResponse(StatusCodes.NotFound)
 
     val ex = failingWith[NotFoundException](service.clubcardDetails(validCardNumber)(validToken))
