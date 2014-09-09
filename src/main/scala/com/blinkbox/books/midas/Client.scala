@@ -61,7 +61,7 @@ trait SprayClient extends Client with Json4sJacksonSupport {
       val tmpChallenge = HttpChallenge(scheme = "Bearer", realm = "", Map("not" -> "available")) // TODO: change once Midas adds WWW-Authenticate headers
       new UnauthorizedException(parseErrorMessage(ex.response.entity), tmpChallenge, ex)
     case ex: UnsuccessfulResponseException if ex.response.status == NotFound =>
-      val errorMsg = if (ex.response.entity.nonEmpty) parseErrorMessage(ex.response.entity) else ErrorMessage.Empty
+      val errorMsg = if (ex.response.entity.nonEmpty) Some(parseErrorMessage(ex.response.entity)) else None
       new NotFoundException(errorMsg, ex)
     case other => other
   }
@@ -82,9 +82,8 @@ case class ErrorMessage(message: String)
 
 object ErrorMessage {
   val errorMessageSerializer = FieldSerializer[ErrorMessage](renameTo("message", "Message"), renameFrom("Message", "message"))
-  val Empty = ErrorMessage("")
 }
 
 // Exceptions raised by client API.
-class NotFoundException(val error: ErrorMessage, cause: Throwable = null) extends RuntimeException(error.toString, cause)
+class NotFoundException(val error: Option[ErrorMessage], cause: Throwable = null) extends RuntimeException(error.toString, cause)
 class UnauthorizedException(val error: ErrorMessage, val challenge: HttpChallenge, cause: Throwable = null) extends RuntimeException(error.toString, cause)

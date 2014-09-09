@@ -71,7 +71,7 @@ class ClubcardServiceTests extends FlatSpec with ScalaFutures with FailHelper wi
 
     whenReady(service.clubcardDetails(validCardNumber)(validToken)) { res =>
       assert(res == Clubcard(ClubcardNumber("634004553765751581"), "testName", primary = true))
-      verify(mockSendReceive).apply(Get(s"${appConfig.url}/api/wallet/clubcards/634004553765751581").withHeaders(Authorization(OAuth2BearerToken("token"))))
+      verify(mockSendReceive).apply(Get(s"${appConfig.url}/api/wallet/clubcards/634004553765751581").withHeaders(Authorization(OAuth2BearerToken(validToken.value))))
     }
   }
 
@@ -92,13 +92,13 @@ class ClubcardServiceTests extends FlatSpec with ScalaFutures with FailHelper wi
     provideJsonResponse(StatusCodes.NotFound, """{"Message": "Wallet not found"}""")
 
     val ex = failingWith[NotFoundException](service.clubcardDetails(validCardNumber)(validToken))
-    assert(ex.error == ErrorMessage("Wallet not found"))
+    assert(ex.error == Some(ErrorMessage("Wallet not found")))
   }
 
   it should "throw a NotFoundException when getting clubcard details that is not in user's wallet" in new TestEnvironment {
     provideResponse(StatusCodes.NotFound)
 
     val ex = failingWith[NotFoundException](service.clubcardDetails(validCardNumber)(validToken))
-    assert(ex.error == ErrorMessage.Empty)
+    assert(ex.error == None)
   }
 }

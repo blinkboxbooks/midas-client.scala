@@ -78,13 +78,13 @@ class AccountCreditServiceTests extends FlatSpec with ScalaFutures with FailHelp
     provideResponse(StatusCodes.NotFound, """{"Message": "Wallet not found"}""")
 
     val ex = failingWith[NotFoundException](service.balance(new SsoAccessToken("token")))
-    assert(ex.error == ErrorMessage("Wallet not found"))
+    assert(ex.error == Some(ErrorMessage("Wallet not found")))
   }
 
   it should "return the response content when an error response can't be parsed" in new TestEnvironment {
     provideResponse(StatusCodes.NotFound, "This is not a valid JSON error message")
 
     val ex = failingWith[NotFoundException](service.balance(new SsoAccessToken("token")))
-    assert(ex.error == ErrorMessage("Cannot parse error message: This is not a valid JSON error message"))
+    assert(ex.error == Some(ErrorMessage("Cannot parse error message: This is not a valid JSON error message")))
   }
 }
