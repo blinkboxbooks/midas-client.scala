@@ -1,5 +1,13 @@
 # Change log
 
+## 0.2.0 ([#4](https://git.mobcastdev.com/Agora/midas-client/pull/4) 2014-09-09 09:08:49)
+
+Support for clubcard details endpoint
+
+### New Feature
+
+- Get clubcard details from Midas wallet
+
 ## 0.1.0 ([#3](https://git.mobcastdev.com/Agora/midas-client/pull/3) 2014-09-04 15:48:41)
 
 First cut of client library for Midas services.
