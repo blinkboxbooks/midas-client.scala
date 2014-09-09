@@ -76,7 +76,7 @@ class ClubcardServiceTests extends FlatSpec with ScalaFutures with FailHelper wi
         |"IsPrivilegeCard":false
         |}""".stripMargin)
 
-    whenReady(service.primaryClubcard(validToken)) { res =>
+    whenReady(service.primaryClubcard()(validToken)) { res =>
       assert(res == Clubcard("634004412411661829", "primary card", isPrimaryCard = true, isPrivilegeCard = false))
       verify(mockSendReceive).apply(Get(s"${appConfig.url}/api/wallet/clubcards/primary").withHeaders(Authorization(OAuth2BearerToken(validToken.value))))
     }
@@ -85,7 +85,7 @@ class ClubcardServiceTests extends FlatSpec with ScalaFutures with FailHelper wi
   it should "throw a NotFoundException when getting primary clubcard if there are no clubcardds in user's wallet" in new ClubcardServiceEnvironment {
     provideResponse(StatusCodes.NotFound)
 
-    val ex = failingWith[NotFoundException](service.primaryClubcard(validToken))
+    val ex = failingWith[NotFoundException](service.primaryClubcard()(validToken))
     assert(ex.error == None)
   }
 }
