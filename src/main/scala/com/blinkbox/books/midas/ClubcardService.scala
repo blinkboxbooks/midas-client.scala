@@ -13,9 +13,9 @@ trait ClubcardService {
   def addClubcard(card: Clubcard)(implicit token: SsoAccessToken): Future[Unit]
   def deleteClubcard(number: String)(implicit token: SsoAccessToken): Future[Unit]
   def clubcardDetails(number: String)(implicit token: SsoAccessToken): Future[Clubcard]
-  def primaryClubcard(implicit token: SsoAccessToken): Future[Clubcard]
+  def primaryClubcard()(implicit token: SsoAccessToken): Future[Clubcard]
   def makePrimary(card: Clubcard)(implicit token: SsoAccessToken): Future[Unit]
-  def listClubcards(implicit token: SsoAccessToken): Future[List[Clubcard]]
+  def listClubcards()(implicit token: SsoAccessToken): Future[List[Clubcard]]
 }
 
 class DefaultClubcardService(config: MidasConfig, client: Client)(implicit ec: ExecutionContext) extends ClubcardService
@@ -31,12 +31,12 @@ class DefaultClubcardService(config: MidasConfig, client: Client)(implicit ec: E
 
   override def makePrimary(card: Clubcard)(implicit token: SsoAccessToken): Future[Unit] = ???
 
-  override def listClubcards(implicit token: SsoAccessToken): Future[List[Clubcard]] = ???
+  override def listClubcards()(implicit token: SsoAccessToken): Future[List[Clubcard]] = ???
 
   override def clubcardDetails(number: String)(implicit token: SsoAccessToken): Future[Clubcard] = {
     val req = Get(s"$serviceBase/api/wallet/clubcards/$number")
     client.dataRequest[Clubcard](req, Some(OAuth2BearerToken(token.value)))
   }
 
-  override def primaryClubcard(implicit token: SsoAccessToken): Future[Clubcard] = ???
+  override def primaryClubcard()(implicit token: SsoAccessToken): Future[Clubcard] = ???
 }
