@@ -10,12 +10,12 @@ import spray.httpx.RequestBuilding.Get
 import scala.concurrent.{ExecutionContext, Future}
 
 trait ClubcardService {
-  def addClubcard(card: Clubcard)(token: SsoAccessToken): Future[Unit]
-  def deleteClubcard(number: ClubcardNumber)(token: SsoAccessToken): Future[Unit]
-  def clubcardDetails(number: ClubcardNumber)(token: SsoAccessToken): Future[Clubcard]
-  def primaryClubcard(token: SsoAccessToken): Future[Clubcard]
-  def makePrimary(card: Clubcard)(token: SsoAccessToken): Future[Unit]
-  def listClubcards(token: SsoAccessToken): Future[List[Clubcard]]
+  def addClubcard(card: Clubcard)(implicit token: SsoAccessToken): Future[Unit]
+  def deleteClubcard(number: String)(implicit token: SsoAccessToken): Future[Unit]
+  def clubcardDetails(number: String)(implicit token: SsoAccessToken): Future[Clubcard]
+  def primaryClubcard(implicit token: SsoAccessToken): Future[Clubcard]
+  def makePrimary(card: Clubcard)(implicit token: SsoAccessToken): Future[Unit]
+  def listClubcards(implicit token: SsoAccessToken): Future[List[Clubcard]]
 }
 
 class DefaultClubcardService(config: MidasConfig, client: Client)(implicit ec: ExecutionContext) extends ClubcardService
@@ -25,18 +25,18 @@ class DefaultClubcardService(config: MidasConfig, client: Client)(implicit ec: E
 
   val serviceBase = config.url
 
-  override def addClubcard(card: Clubcard)(token: SsoAccessToken): Future[Unit] = ???
+  override def addClubcard(card: Clubcard)(implicit token: SsoAccessToken): Future[Unit] = ???
 
-  override def deleteClubcard(number: ClubcardNumber)(token: SsoAccessToken): Future[Unit] = ???
+  override def deleteClubcard(number: String)(implicit token: SsoAccessToken): Future[Unit] = ???
 
-  override def makePrimary(card: Clubcard)(token: SsoAccessToken): Future[Unit] = ???
+  override def makePrimary(card: Clubcard)(implicit token: SsoAccessToken): Future[Unit] = ???
 
-  override def listClubcards(token: SsoAccessToken): Future[List[Clubcard]] = ???
+  override def listClubcards(implicit token: SsoAccessToken): Future[List[Clubcard]] = ???
 
-  override def clubcardDetails(number: ClubcardNumber)(token: SsoAccessToken): Future[Clubcard] = {
-    val req = Get(s"$serviceBase/api/wallet/clubcards/${number.value}")
+  override def clubcardDetails(number: String)(implicit token: SsoAccessToken): Future[Clubcard] = {
+    val req = Get(s"$serviceBase/api/wallet/clubcards/$number")
     client.dataRequest[Clubcard](req, Some(OAuth2BearerToken(token.value)))
   }
 
-  override def primaryClubcard(token: SsoAccessToken): Future[Clubcard] = ???
+  override def primaryClubcard(implicit token: SsoAccessToken): Future[Clubcard] = ???
 }
