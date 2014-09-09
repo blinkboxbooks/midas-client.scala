@@ -38,5 +38,8 @@ class DefaultClubcardService(config: MidasConfig, client: Client)(implicit ec: E
     client.dataRequest[Clubcard](req, Some(OAuth2BearerToken(token.value)))
   }
 
-  override def primaryClubcard()(implicit token: SsoAccessToken): Future[Clubcard] = ???
+  override def primaryClubcard()(implicit token: SsoAccessToken): Future[Clubcard] = {
+    val req = Get(s"$serviceBase/api/wallet/clubcards/primary")
+    client.dataRequest[Clubcard](req, Some(OAuth2BearerToken(token.value)))
+  }
 }
