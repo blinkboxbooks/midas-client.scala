@@ -2,7 +2,9 @@ package com.blinkbox.books.midas
 
 import akka.actor.{ActorRefFactory, ActorSystem}
 import akka.util.Timeout
+import com.google.common.base.CaseFormat
 import org.json4s.FieldSerializer.{renameFrom, renameTo}
+import org.json4s.JsonAST.JField
 import org.json4s.{DefaultFormats, FieldSerializer}
 import spray.client.pipelining._
 import spray.http._
@@ -68,6 +70,16 @@ trait SprayClient extends Client with Json4sJacksonSupport {
 
   private def parseErrorMessage(entity: HttpEntity): ErrorMessage =
     entity.as[ErrorMessage].fold[ErrorMessage](err => ErrorMessage(s"Cannot parse error message: ${entity.asString}"), identity)
+}
+
+object SerializationHelpers {
+  private val pascalToCamel = CaseFormat.UPPER_CAMEL.converterTo(CaseFormat.LOWER_CAMEL).convert _
+  private val camelToPascal = CaseFormat.LOWER_CAMEL.converterTo(CaseFormat.UPPER_CAMEL).convert _
+
+  val pascalToCamelConverter = FieldSerializer[AnyRef](
+    deserializer = { case JField(name, v) => JField(pascalToCamel(name), v) },
+    serializer = { case (name, v) => Some((camelToPascal(name), v)) }
+  )
 }
 
 /**

@@ -1,8 +1,7 @@
 package com.blinkbox.books.midas
 
-import com.google.common.base.CaseFormat
+import com.blinkbox.books.midas.SerializationHelpers.pascalToCamelConverter
 import com.typesafe.scalalogging.slf4j.StrictLogging
-import org.json4s.JsonAST.JField
 import org.json4s._
 import spray.http.OAuth2BearerToken
 import spray.httpx.Json4sJacksonSupport
@@ -22,8 +21,6 @@ trait ClubcardService {
 class DefaultClubcardService(config: MidasConfig, client: Client)(implicit ec: ExecutionContext) extends ClubcardService
   with Json4sJacksonSupport with StrictLogging {
 
-  import com.blinkbox.books.midas.DefaultClubcardService._
-
   override implicit def json4sJacksonFormats: Formats = DefaultFormats + pascalToCamelConverter
 
   val serviceBase = config.url
@@ -42,14 +39,4 @@ class DefaultClubcardService(config: MidasConfig, client: Client)(implicit ec: E
   }
 
   override def primaryClubcard(token: SsoAccessToken): Future[Clubcard] = ???
-}
-
-object DefaultClubcardService {
-  private val pascalToCamel = CaseFormat.UPPER_CAMEL.converterTo(CaseFormat.LOWER_CAMEL).convert _
-  private val camelToPascal = CaseFormat.LOWER_CAMEL.converterTo(CaseFormat.UPPER_CAMEL).convert _
-
-  val pascalToCamelConverter = FieldSerializer[AnyRef](
-    deserializer = { case JField(name, v) => JField(pascalToCamel(name), v) },
-    serializer = { case (name, v) => Some((camelToPascal(name), v)) }
-  )
 }
