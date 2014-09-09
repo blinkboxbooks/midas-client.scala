@@ -20,6 +20,8 @@ val dependencySettings = Seq(
     Seq(
       "io.spray"                  %   "spray-client"          % sprayV,
       "com.typesafe.akka"         %%  "akka-slf4j"            % akkaV,
+      "com.google.guava"          %   "guava"                 % "18.0",
+      "com.google.code.findbugs"  %   "jsr305"                % "3.0.0",
       "com.blinkbox.books"        %%  "common-config"         % "1.0.2",
       "com.blinkbox.books"        %%  "common-json"           % "0.2.1",
       "com.blinkbox.books"        %%  "common-scala-test"     % "0.3.0"   % Test,

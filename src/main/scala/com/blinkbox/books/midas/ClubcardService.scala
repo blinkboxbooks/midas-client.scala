@@ -1,7 +1,7 @@
 package com.blinkbox.books.midas
 
+import com.google.common.base.CaseFormat
 import com.typesafe.scalalogging.slf4j.StrictLogging
-import org.json4s.FieldSerializer._
 import org.json4s.JsonAST.JField
 import org.json4s._
 import spray.http.OAuth2BearerToken
@@ -24,7 +24,7 @@ class DefaultClubcardService(config: MidasConfig, client: Client)(implicit ec: E
 
   import com.blinkbox.books.midas.DefaultClubcardService._
 
-  override implicit def json4sJacksonFormats: Formats = DefaultFormats + clubcardSerializer
+  override implicit def json4sJacksonFormats: Formats = DefaultFormats + pascalToCamelConverter
 
   val serviceBase = config.url
 
@@ -45,23 +45,11 @@ class DefaultClubcardService(config: MidasConfig, client: Client)(implicit ec: E
 }
 
 object DefaultClubcardService {
-  implicit val defaultFormat = DefaultFormats
+  private val pascalToCamel = CaseFormat.UPPER_CAMEL.converterTo(CaseFormat.LOWER_CAMEL).convert _
+  private val camelToPascal = CaseFormat.LOWER_CAMEL.converterTo(CaseFormat.UPPER_CAMEL).convert _
 
-  val clubcardSerializer = FieldSerializer[Clubcard](
-    serializeClubcardNumber orElse
-    renameTo("displayName", "DisplayName") orElse
-    renameTo("primary", "IsPrimaryCard") orElse
-    renameTo("privileged", "IsPrivilegedCard"),
-    deserializeClubcardNumber orElse
-    renameFrom("DisplayName", "displayName") orElse
-    renameFrom("IsPrimaryCard", "primary") orElse
-    renameFrom("IsPrivilegedCard", "privileged"))
-
-  def serializeClubcardNumber: PartialFunction[(String, Any), Option[(String, Any)]] = {
-    case ("number", x: ClubcardNumber) => Some(("ClubcardNumber", JString(x.value)))
-  }
-
-  def deserializeClubcardNumber: PartialFunction[JField, JField] = {
-    case JField("CardNumber", x) => JField("number", Extraction.decompose(ClubcardNumber(x.extract[String])))
-  }
+  val pascalToCamelConverter = FieldSerializer[AnyRef](
+    deserializer = { case JField(name, v) => JField(pascalToCamel(name), v) },
+    serializer = { case (name, v) => Some((camelToPascal(name), v)) }
+  )
 }

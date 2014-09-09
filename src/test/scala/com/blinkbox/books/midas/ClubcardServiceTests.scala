@@ -30,7 +30,7 @@ class ClubcardServiceTests extends FlatSpec with ScalaFutures with FailHelper wi
         |}""".stripMargin)
 
     whenReady(service.clubcardDetails(validCardNumber)(validToken)) { res =>
-      assert(res == Clubcard(ClubcardNumber("634004553765751581"), "testName", primary = true))
+      assert(res == Clubcard("634004553765751581", "testName", isPrimaryCard = true, isPrivilegeCard = false))
       verify(mockSendReceive).apply(Get(s"${appConfig.url}/api/wallet/clubcards/634004553765751581").withHeaders(Authorization(OAuth2BearerToken(validToken.value))))
     }
   }
