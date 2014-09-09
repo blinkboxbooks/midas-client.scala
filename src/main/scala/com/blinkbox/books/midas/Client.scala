@@ -2,7 +2,9 @@ package com.blinkbox.books.midas
 
 import akka.actor.{ActorRefFactory, ActorSystem}
 import akka.util.Timeout
+import com.google.common.base.CaseFormat
 import org.json4s.FieldSerializer.{renameFrom, renameTo}
+import org.json4s.JsonAST.JField
 import org.json4s.{DefaultFormats, FieldSerializer}
 import spray.client.pipelining._
 import spray.http._
@@ -61,12 +63,23 @@ trait SprayClient extends Client with Json4sJacksonSupport {
       val tmpChallenge = HttpChallenge(scheme = "Bearer", realm = "", Map("not" -> "available")) // TODO: change once Midas adds WWW-Authenticate headers
       new UnauthorizedException(parseErrorMessage(ex.response.entity), tmpChallenge, ex)
     case ex: UnsuccessfulResponseException if ex.response.status == NotFound =>
-      new NotFoundException(parseErrorMessage(ex.response.entity), ex)
+      val errorMsg = if (ex.response.entity.nonEmpty) Some(parseErrorMessage(ex.response.entity)) else None
+      new NotFoundException(errorMsg, ex)
     case other => other
   }
 
   private def parseErrorMessage(entity: HttpEntity): ErrorMessage =
     entity.as[ErrorMessage].fold[ErrorMessage](err => ErrorMessage(s"Cannot parse error message: ${entity.asString}"), identity)
+}
+
+object SerializationHelpers {
+  private val pascalToCamel = CaseFormat.UPPER_CAMEL.converterTo(CaseFormat.LOWER_CAMEL).convert _
+  private val camelToPascal = CaseFormat.LOWER_CAMEL.converterTo(CaseFormat.UPPER_CAMEL).convert _
+
+  val pascalToCamelConverter = FieldSerializer[AnyRef](
+    deserializer = { case JField(name, v) => JField(pascalToCamel(name), v) },
+    serializer = { case (name, v) => Some((camelToPascal(name), v)) }
+  )
 }
 
 /**
@@ -84,5 +97,5 @@ object ErrorMessage {
 }
 
 // Exceptions raised by client API.
-class NotFoundException(val error: ErrorMessage, cause: Throwable = null) extends RuntimeException(error.toString, cause)
+class NotFoundException(val error: Option[ErrorMessage], cause: Throwable = null) extends RuntimeException(error.toString, cause)
 class UnauthorizedException(val error: ErrorMessage, val challenge: HttpChallenge, cause: Throwable = null) extends RuntimeException(error.toString, cause)
