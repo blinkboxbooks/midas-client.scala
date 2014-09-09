@@ -42,12 +42,3 @@ trait TestEnvironment extends MockitoSyrup {
     override def doSendReceive(implicit refFactory: ActorRefFactory, ec: ExecutionContext): SendReceive = mockSendReceive
   }
 }
-
-class AccountServiceEnvironment extends TestEnvironment {
-  val service = new DefaultAccountCreditService(appConfig, client)
-}
-
-class ClubcardServiceEnvironment extends TestEnvironment {
-  val service = new DefaultClubcardService(appConfig, client)
-  val validCardNumber = ClubcardNumber("634004553765751581")
-}

@@ -14,6 +14,11 @@ import spray.httpx.RequestBuilding.Get
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
+class ClubcardServiceEnvironment extends TestEnvironment {
+  val service = new DefaultClubcardService(appConfig, client)
+  val validCardNumber = ClubcardNumber("634004553765751581")
+}
+
 @RunWith(classOf[JUnitRunner])
 class ClubcardServiceTests extends FlatSpec with ScalaFutures with FailHelper with MockitoSyrup {
 

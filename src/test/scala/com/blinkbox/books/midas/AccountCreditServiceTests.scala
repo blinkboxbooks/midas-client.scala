@@ -14,6 +14,10 @@ import spray.httpx.RequestBuilding.Get
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
+class AccountServiceEnvironment extends TestEnvironment {
+  val service = new DefaultAccountCreditService(appConfig, client)
+}
+
 @RunWith(classOf[JUnitRunner])
 class AccountCreditServiceTests extends FlatSpec with ScalaFutures with FailHelper {
 
