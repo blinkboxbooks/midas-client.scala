@@ -14,6 +14,8 @@ import spray.httpx.RequestBuilding.Get
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
+import spray.http.StatusCodes._
+
 class AccountServiceEnvironment extends TestEnvironment {
   val service = new DefaultAccountCreditService(appConfig, client)
 }
@@ -25,7 +27,7 @@ class AccountCreditServiceTests extends FlatSpec with ScalaFutures with FailHelp
   implicit val defaultPatience = PatienceConfig(timeout = scaled(Span(5, Seconds)), interval = scaled(Span(25, Millis)))
 
   "An account service client" should "return a valid account balance" in new AccountServiceEnvironment {
-    provideJsonResponse(StatusCodes.OK, """{"Balance":10.0}""")
+    provideJsonResponse(OK, """{"Balance":10.0}""")
 
     whenReady(service.balance(validToken)) { res =>
       assert(res == Balance(BigDecimal("10.0")))
@@ -39,7 +41,7 @@ class AccountCreditServiceTests extends FlatSpec with ScalaFutures with FailHelp
   }
 
   it should "throw an UnauthorizedException when getting account balance with invalid access token" in new AccountServiceEnvironment {
-    provideJsonResponse(StatusCodes.Unauthorized, """{"Message":"Token is invalid or expired"}""")
+    provideJsonResponse(Unauthorized, """{"Message":"Token is invalid or expired"}""")
 
     val ex = failingWith[UnauthorizedException](service.balance(validToken))
     assert(ex.error == ErrorMessage("Token is invalid or expired"))
@@ -47,14 +49,14 @@ class AccountCreditServiceTests extends FlatSpec with ScalaFutures with FailHelp
   }
 
   it should "throw a NotFoundException when getting account balance for a user that has no wallet" in new AccountServiceEnvironment {
-    provideJsonResponse(StatusCodes.NotFound, """{"Message": "Wallet not found"}""")
+    provideJsonResponse(NotFound, """{"Message": "Wallet not found"}""")
 
     val ex = failingWith[NotFoundException](service.balance(validToken))
     assert(ex.error == Some(ErrorMessage("Wallet not found")))
   }
 
   it should "return the response content when an error response can't be parsed" in new AccountServiceEnvironment {
-    provideJsonResponse(StatusCodes.NotFound, "This is not a valid JSON error message")
+    provideJsonResponse(NotFound, "This is not a valid JSON error message")
 
     val ex = failingWith[NotFoundException](service.balance(validToken))
     assert(ex.error == Some(ErrorMessage("Cannot parse error message: This is not a valid JSON error message")))

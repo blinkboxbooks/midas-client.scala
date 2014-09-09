@@ -11,6 +11,7 @@ import spray.can.Http.ConnectionException
 import spray.http.HttpHeaders.Authorization
 import spray.http._
 import spray.httpx.RequestBuilding.Get
+import spray.http.StatusCodes._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -27,7 +28,7 @@ class ClubcardServiceTests extends FlatSpec with ScalaFutures with FailHelper wi
 
 
   "A clubcard service client" should "return a valid clubcard details" in new ClubcardServiceEnvironment {
-    provideJsonResponse(StatusCodes.OK, """{
+    provideJsonResponse(OK, """{
         |"DisplayName":"testName",
         |"CardNumber":"634004553765751581",
         |"IsPrimaryCard":true,
@@ -46,7 +47,7 @@ class ClubcardServiceTests extends FlatSpec with ScalaFutures with FailHelper wi
   }
 
   it should "throw an UnauthorizedException when getting clubcard details with invalid access token" in new ClubcardServiceEnvironment {
-    provideJsonResponse(StatusCodes.Unauthorized, """{"Message":"Token is invalid or expired"}""")
+    provideJsonResponse(Unauthorized, """{"Message":"Token is invalid or expired"}""")
 
     val ex = failingWith[UnauthorizedException](service.clubcardDetails(validCardNumber)(invalidToken))
     assert(ex.error == ErrorMessage("Token is invalid or expired"))
@@ -54,14 +55,14 @@ class ClubcardServiceTests extends FlatSpec with ScalaFutures with FailHelper wi
   }
 
   it should "throw a NotFoundException when getting clubcard details for a user that has no wallet" in new ClubcardServiceEnvironment {
-    provideJsonResponse(StatusCodes.NotFound, """{"Message": "Wallet not found"}""")
+    provideJsonResponse(NotFound, """{"Message": "Wallet not found"}""")
 
     val ex = failingWith[NotFoundException](service.clubcardDetails(validCardNumber)(validToken))
     assert(ex.error == Some(ErrorMessage("Wallet not found")))
   }
 
   it should "throw a NotFoundException when getting clubcard details that is not in user's wallet" in new ClubcardServiceEnvironment {
-    provideResponse(StatusCodes.NotFound)
+    provideResponse(NotFound)
 
     val ex = failingWith[NotFoundException](service.clubcardDetails(validCardNumber)(validToken))
     assert(ex.error == None)
