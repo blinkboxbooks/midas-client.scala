@@ -59,16 +59,18 @@ trait SprayClient extends Client with Json4sJacksonSupport {
       .transform(identity, exceptionTransformer)
 
   def exceptionTransformer: Throwable => Throwable = {
-    case ex: UnsuccessfulResponseException if ex.response.status == BadRequest =>
-      new BadRequestException(parseErrorMessage(ex.response.entity), ex)
-    case ex: UnsuccessfulResponseException if ex.response.status == Unauthorized =>
-      val tmpChallenge = HttpChallenge(scheme = "Bearer", realm = "", Map("not" -> "available")) // TODO: change once Midas adds WWW-Authenticate headers
-      new UnauthorizedException(parseErrorMessage(ex.response.entity), tmpChallenge, ex)
-    case ex: UnsuccessfulResponseException if ex.response.status == NotFound =>
-      val errorMsg = if (ex.response.entity.nonEmpty) Some(parseErrorMessage(ex.response.entity)) else None
-      new NotFoundException(errorMsg, ex)
-    case ex: UnsuccessfulResponseException if ex.response.status == Conflict =>
-      new ConflictException(parseErrorMessage(ex.response.entity), ex)
+    case ex: UnsuccessfulResponseException =>
+      ex.response.status match {
+        case BadRequest => new BadRequestException(parseErrorMessage(ex.response.entity), ex)
+        case Unauthorized =>
+          val tmpChallenge = HttpChallenge(scheme = "Bearer", realm = "", Map("not" -> "available")) // TODO: change once Midas adds WWW-Authenticate headers
+          new UnauthorizedException(parseErrorMessage(ex.response.entity), tmpChallenge, ex)
+        case NotFound =>
+          val errorMsg = if (ex.response.entity.nonEmpty) Some(parseErrorMessage(ex.response.entity)) else None
+          new NotFoundException(errorMsg, ex)
+        case Conflict => new ConflictException(parseErrorMessage(ex.response.entity), ex)
+        case other => ex
+      }
     case other => other
   }
 
