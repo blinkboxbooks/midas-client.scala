@@ -2,6 +2,7 @@ package com.blinkbox.books.midas
 
 import com.blinkbox.books.test.{FailHelper, MockitoSyrup}
 import org.junit.runner.RunWith
+import org.mockito.ArgumentCaptor
 import org.mockito.Mockito._
 import org.scalatest.FlatSpec
 import org.scalatest.concurrent.ScalaFutures
@@ -9,9 +10,9 @@ import org.scalatest.junit.JUnitRunner
 import org.scalatest.time.{Millis, Seconds, Span}
 import spray.can.Http.ConnectionException
 import spray.http.HttpHeaders.Authorization
+import spray.http.StatusCodes._
 import spray.http._
 import spray.httpx.RequestBuilding.Get
-import spray.http.StatusCodes._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -54,14 +55,14 @@ class ClubcardServiceTests extends FlatSpec with ScalaFutures with FailHelper wi
     assert(ex.challenge == HttpChallenge("Bearer", realm = "", Map("not" -> "available")))
   }
 
-  it should "throw a NotFoundException when getting clubcard details for a user that has no wallet" in new ClubcardServiceEnvironment {
+  it should "throw NotFoundException when getting clubcard details for a user that has no wallet" in new ClubcardServiceEnvironment {
     provideJsonResponse(NotFound, """{"Message": "Wallet not found"}""")
 
     val ex = failingWith[NotFoundException](service.clubcardDetails(validCardNumber)(validToken))
     assert(ex.error == Some(ErrorMessage("Wallet not found")))
   }
 
-  it should "throw a NotFoundException when getting clubcard details that is not in user's wallet" in new ClubcardServiceEnvironment {
+  it should "throw NotFoundException when getting clubcard details that is not in user's wallet" in new ClubcardServiceEnvironment {
     provideResponse(NotFound)
 
     val ex = failingWith[NotFoundException](service.clubcardDetails(validCardNumber)(validToken))
@@ -82,10 +83,44 @@ class ClubcardServiceTests extends FlatSpec with ScalaFutures with FailHelper wi
     }
   }
 
-  it should "throw a NotFoundException when getting primary clubcard if there are no clubcardds in user's wallet" in new ClubcardServiceEnvironment {
+  it should "throw NotFoundException when getting primary clubcard if there are no clubcards in user's wallet" in new ClubcardServiceEnvironment {
     provideResponse(StatusCodes.NotFound)
 
     val ex = failingWith[NotFoundException](service.primaryClubcard()(validToken))
     assert(ex.error == None)
   }
+
+  it should "add a new valid clubcard to user's wallet" in new ClubcardServiceEnvironment {
+    provideJsonResponse(Created,
+      """{
+        |"DisplayName":"test card",
+        |"CardNumber":"634004739349108915",
+        |"IsPrimaryCard":true,
+        |"IsPrivilegeCard":false
+        |}""".stripMargin)
+
+    whenReady(service.addClubcard("634004739349108915", "test card")(validToken)) { res =>
+      assert(res == Clubcard("634004739349108915", "test card", isPrimaryCard = true, isPrivilegeCard = false))
+
+      val requestCaptor = ArgumentCaptor.forClass(classOf[HttpRequest])
+      verify(mockSendReceive).apply(requestCaptor.capture)
+      assert(requestCaptor.getValue.entity.toOption.map(_.contentType) == Some(ContentTypes.`application/json`))
+    }
+  }
+
+  // TODO: Midas returns 400 BadRequest at the moment
+  ignore should "throw ConflictException when adding a valid clubcard that was registered before" in new ClubcardServiceEnvironment {
+    provideJsonResponse(BadRequest, """{"Message":"Clubcard already registered with service"}""")
+
+    val ex = failingWith[ConflictException](service.addClubcard("634004739349108915", "test card")(validToken))
+    assert(ex.error == ErrorMessage("Clubcard already registered with service"))
+  }
+
+  it should "throw BadRequestException when adding invalid clubcard to user's wallet" in new ClubcardServiceEnvironment {
+    provideJsonResponse(BadRequest, """{"Message":"The request is invalid."}""")
+
+    val ex = failingWith[BadRequestException](service.addClubcard("634004739349108915", "test card")(validToken))
+    assert(ex.error == ErrorMessage("The request is invalid."))
+  }
+
 }

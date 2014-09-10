@@ -59,12 +59,16 @@ trait SprayClient extends Client with Json4sJacksonSupport {
       .transform(identity, exceptionTransformer)
 
   def exceptionTransformer: Throwable => Throwable = {
+    case ex: UnsuccessfulResponseException if ex.response.status == BadRequest =>
+      new BadRequestException(parseErrorMessage(ex.response.entity), ex)
     case ex: UnsuccessfulResponseException if ex.response.status == Unauthorized =>
       val tmpChallenge = HttpChallenge(scheme = "Bearer", realm = "", Map("not" -> "available")) // TODO: change once Midas adds WWW-Authenticate headers
       new UnauthorizedException(parseErrorMessage(ex.response.entity), tmpChallenge, ex)
     case ex: UnsuccessfulResponseException if ex.response.status == NotFound =>
       val errorMsg = if (ex.response.entity.nonEmpty) Some(parseErrorMessage(ex.response.entity)) else None
       new NotFoundException(errorMsg, ex)
+    case ex: UnsuccessfulResponseException if ex.response.status == Conflict =>
+      new ConflictException(parseErrorMessage(ex.response.entity), ex)
     case other => other
   }
 
@@ -97,5 +101,7 @@ object ErrorMessage {
 }
 
 // Exceptions raised by client API.
+class BadRequestException(val error: ErrorMessage, cause: Throwable = null) extends RuntimeException(error.toString, cause)
 class NotFoundException(val error: Option[ErrorMessage], cause: Throwable = null) extends RuntimeException(error.toString, cause)
 class UnauthorizedException(val error: ErrorMessage, val challenge: HttpChallenge, cause: Throwable = null) extends RuntimeException(error.toString, cause)
+class ConflictException(val error: ErrorMessage, cause: Throwable = null) extends RuntimeException(error.toString, cause)
