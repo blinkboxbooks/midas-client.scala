@@ -12,9 +12,10 @@ import spray.can.Http.ConnectionException
 import spray.http.HttpHeaders.Authorization
 import spray.http.StatusCodes._
 import spray.http._
-import spray.httpx.RequestBuilding.Get
+import spray.httpx.RequestBuilding.{Delete, Get}
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
 
 class ClubcardServiceEnvironment extends TestEnvironment {
   val service = new DefaultClubcardService(appConfig, client)
@@ -105,5 +106,18 @@ class ClubcardServiceTests extends FlatSpec with ScalaFutures with FailHelper wi
 
     val ex = failingWith[BadRequestException](service.addClubcard(validCardNumber, "test card")(validToken))
     assert(ex.error == ErrorMessage("The request is invalid."))
+  }
+
+  it should "delete an existing clubcard from user's wallet" in new ClubcardServiceEnvironment {
+    provideResponse(NoContent)
+    val res = service.deleteClubcard(validCardNumber)(validToken)
+    res.isReadyWithin(100.millis)
+    verify(mockSendReceive).apply(Delete(s"${appConfig.url}/api/wallet/clubcards/$validCardNumber").withHeaders(Authorization(OAuth2BearerToken(validToken.value))))
+  }
+
+  it should "throw NotFoundException when deleting a clubcard that is not in user's wallet" in new ClubcardServiceEnvironment {
+    provideResponse(NotFound)
+    val ex = failingWith[NotFoundException](service.deleteClubcard("notInMyWallet")(validToken))
+    assert(ex.error == None)
   }
 }

@@ -52,7 +52,9 @@ trait SprayClient extends Client with Json4sJacksonSupport {
   protected def dataPipeline[T : FromResponseUnmarshaller](credentials: Option[HttpCredentials]) =
     basePipeline(credentials) ~> unmarshal[T]
 
-  override def unitRequest(req: HttpRequest, credentials: Option[HttpCredentials]): Future[Unit] = unitPipeline(credentials)(req)
+  override def unitRequest(req: HttpRequest, credentials: Option[HttpCredentials]): Future[Unit] =
+    unitPipeline(credentials)(req)
+      .transform(identity, exceptionTransformer)
 
   override def dataRequest[T : FromResponseUnmarshaller](req: HttpRequest, credentials: Option[HttpCredentials]): Future[T] =
     dataPipeline(credentials).apply(req)

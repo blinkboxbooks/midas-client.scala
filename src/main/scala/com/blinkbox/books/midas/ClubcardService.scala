@@ -5,7 +5,7 @@ import com.typesafe.scalalogging.slf4j.StrictLogging
 import org.json4s._
 import spray.http.OAuth2BearerToken
 import spray.httpx.Json4sJacksonSupport
-import spray.httpx.RequestBuilding.{Get, Post}
+import spray.httpx.RequestBuilding.{Delete, Get, Post}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -31,7 +31,10 @@ class DefaultClubcardService(config: MidasConfig, client: Client)(implicit ec: E
     client.dataRequest[Clubcard](req, Some(OAuth2BearerToken(token.value)))
   }
 
-  override def deleteClubcard(number: String)(implicit token: SsoAccessToken): Future[Unit] = ???
+  override def deleteClubcard(number: String)(implicit token: SsoAccessToken): Future[Unit] = {
+    val req = Delete(s"$serviceBase/api/wallet/clubcards/$number")
+    client.unitRequest(req, Some(OAuth2BearerToken(token.value)))
+  }
 
   override def makePrimary(card: Clubcard)(implicit token: SsoAccessToken): Future[Unit] = ???
 
