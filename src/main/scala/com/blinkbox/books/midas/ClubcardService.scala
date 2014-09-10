@@ -5,7 +5,7 @@ import com.typesafe.scalalogging.slf4j.StrictLogging
 import org.json4s._
 import spray.http.OAuth2BearerToken
 import spray.httpx.Json4sJacksonSupport
-import spray.httpx.RequestBuilding.{Delete, Get, Post}
+import spray.httpx.RequestBuilding.{Delete, Get, Post, Put}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -14,7 +14,7 @@ trait ClubcardService {
   def deleteClubcard(number: String)(implicit token: SsoAccessToken): Future[Unit]
   def clubcardDetails(number: String)(implicit token: SsoAccessToken): Future[Clubcard]
   def primaryClubcard()(implicit token: SsoAccessToken): Future[Clubcard]
-  def makePrimary(card: Clubcard)(implicit token: SsoAccessToken): Future[Unit]
+  def makePrimary(number: String)(implicit token: SsoAccessToken): Future[Unit]
   def listClubcards()(implicit token: SsoAccessToken): Future[List[Clubcard]]
 }
 
@@ -36,7 +36,10 @@ class DefaultClubcardService(config: MidasConfig, client: Client)(implicit ec: E
     client.unitRequest(req, Some(OAuth2BearerToken(token.value)))
   }
 
-  override def makePrimary(card: Clubcard)(implicit token: SsoAccessToken): Future[Unit] = ???
+  override def makePrimary(number: String)(implicit token: SsoAccessToken): Future[Unit] = {
+    val req = Put(s"$serviceBase/api/wallet/clubcards/$number")
+    client.unitRequest(req, Some(OAuth2BearerToken(token.value)))
+  }
 
   override def listClubcards()(implicit token: SsoAccessToken): Future[List[Clubcard]] = ???
 

@@ -12,7 +12,7 @@ import spray.can.Http.ConnectionException
 import spray.http.HttpHeaders.Authorization
 import spray.http.StatusCodes._
 import spray.http._
-import spray.httpx.RequestBuilding.{Delete, Get}
+import spray.httpx.RequestBuilding.{Delete, Get, Put}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -118,6 +118,19 @@ class ClubcardServiceTests extends FlatSpec with ScalaFutures with FailHelper wi
   it should "throw NotFoundException when deleting a clubcard that is not in user's wallet" in new ClubcardServiceEnvironment {
     provideResponse(NotFound)
     val ex = failingWith[NotFoundException](service.deleteClubcard("notInMyWallet")(validToken))
+    assert(ex.error == None)
+  }
+
+  it should "make an existing clubcard primary" in new ClubcardServiceEnvironment {
+    provideResponse(NoContent)
+    val res = service.makePrimary(validCardNumber)(validToken)
+    res.isReadyWithin(100.millis)
+    verify(mockSendReceive).apply(Put(s"${appConfig.url}/api/wallet/clubcards/$validCardNumber").withHeaders(Authorization(OAuth2BearerToken(validToken.value))))
+  }
+
+  it should "throw NotFoundException when making a clubcard that is not in user's wallet a primary card" in new ClubcardServiceEnvironment {
+    provideResponse(NotFound)
+    val ex = failingWith[NotFoundException](service.makePrimary("notInMyWallet")(validToken))
     assert(ex.error == None)
   }
 }
