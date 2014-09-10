@@ -29,16 +29,11 @@ class ClubcardServiceTests extends FlatSpec with ScalaFutures with FailHelper wi
 
 
   "A clubcard service client" should "return a valid clubcard details" in new ClubcardServiceEnvironment {
-    provideJsonResponse(OK, """{
-        |"DisplayName":"testName",
-        |"CardNumber":"634004553765751581",
-        |"IsPrimaryCard":true,
-        |"IsPrivilegeCard":false
-        |}""".stripMargin)
+    provideJsonResponse(OK, s"""{"DisplayName":"testName","CardNumber":"$validCardNumber","IsPrimaryCard":true,"IsPrivilegeCard":false}""")
 
     whenReady(service.clubcardDetails(validCardNumber)(validToken)) { res =>
-      assert(res == Clubcard("634004553765751581", "testName", isPrimaryCard = true, isPrivilegeCard = false))
-      verify(mockSendReceive).apply(Get(s"${appConfig.url}/api/wallet/clubcards/634004553765751581").withHeaders(Authorization(OAuth2BearerToken(validToken.value))))
+      assert(res == Clubcard(validCardNumber, "testName", isPrimaryCard = true, isPrivilegeCard = false))
+      verify(mockSendReceive).apply(Get(s"${appConfig.url}/api/wallet/clubcards/$validCardNumber").withHeaders(Authorization(OAuth2BearerToken(validToken.value))))
     }
   }
 
@@ -70,15 +65,10 @@ class ClubcardServiceTests extends FlatSpec with ScalaFutures with FailHelper wi
   }
 
   it should "return a primary clubcard if there is at least one clubcard in user's wallet" in new ClubcardServiceEnvironment {
-    provideJsonResponse(StatusCodes.OK, """{
-        |"DisplayName":"primary card",
-        |"CardNumber":"634004412411661829",
-        |"IsPrimaryCard":true,
-        |"IsPrivilegeCard":false
-        |}""".stripMargin)
+    provideJsonResponse(StatusCodes.OK, s"""{"DisplayName":"primary card","CardNumber":"$validCardNumber","IsPrimaryCard":true,"IsPrivilegeCard":false}""")
 
     whenReady(service.primaryClubcard()(validToken)) { res =>
-      assert(res == Clubcard("634004412411661829", "primary card", isPrimaryCard = true, isPrivilegeCard = false))
+      assert(res == Clubcard(validCardNumber, "primary card", isPrimaryCard = true, isPrivilegeCard = false))
       verify(mockSendReceive).apply(Get(s"${appConfig.url}/api/wallet/clubcards/primary").withHeaders(Authorization(OAuth2BearerToken(validToken.value))))
     }
   }
@@ -91,16 +81,10 @@ class ClubcardServiceTests extends FlatSpec with ScalaFutures with FailHelper wi
   }
 
   it should "add a new valid clubcard to user's wallet" in new ClubcardServiceEnvironment {
-    provideJsonResponse(Created,
-      """{
-        |"DisplayName":"test card",
-        |"CardNumber":"634004739349108915",
-        |"IsPrimaryCard":true,
-        |"IsPrivilegeCard":false
-        |}""".stripMargin)
+    provideJsonResponse(Created, s"""{"DisplayName":"test card","CardNumber":"$validCardNumber","IsPrimaryCard":true,"IsPrivilegeCard":false}""")
 
-    whenReady(service.addClubcard("634004739349108915", "test card")(validToken)) { res =>
-      assert(res == Clubcard("634004739349108915", "test card", isPrimaryCard = true, isPrivilegeCard = false))
+    whenReady(service.addClubcard(validCardNumber, "test card")(validToken)) { res =>
+      assert(res == Clubcard(validCardNumber, "test card", isPrimaryCard = true, isPrivilegeCard = false))
 
       val requestCaptor = ArgumentCaptor.forClass(classOf[HttpRequest])
       verify(mockSendReceive).apply(requestCaptor.capture)
@@ -112,15 +96,14 @@ class ClubcardServiceTests extends FlatSpec with ScalaFutures with FailHelper wi
   ignore should "throw ConflictException when adding a valid clubcard that was registered before" in new ClubcardServiceEnvironment {
     provideJsonResponse(BadRequest, """{"Message":"Clubcard already registered with service"}""")
 
-    val ex = failingWith[ConflictException](service.addClubcard("634004739349108915", "test card")(validToken))
+    val ex = failingWith[ConflictException](service.addClubcard(validCardNumber, "test card")(validToken))
     assert(ex.error == ErrorMessage("Clubcard already registered with service"))
   }
 
   it should "throw BadRequestException when adding invalid clubcard to user's wallet" in new ClubcardServiceEnvironment {
     provideJsonResponse(BadRequest, """{"Message":"The request is invalid."}""")
 
-    val ex = failingWith[BadRequestException](service.addClubcard("634004739349108915", "test card")(validToken))
+    val ex = failingWith[BadRequestException](service.addClubcard(validCardNumber, "test card")(validToken))
     assert(ex.error == ErrorMessage("The request is invalid."))
   }
-
 }
