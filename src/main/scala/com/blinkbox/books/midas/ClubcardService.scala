@@ -15,13 +15,13 @@ trait ClubcardService {
   def clubcardDetails(number: String)(implicit token: SsoAccessToken): Future[Clubcard]
   def primaryClubcard()(implicit token: SsoAccessToken): Future[Clubcard]
   def makePrimary(number: String)(implicit token: SsoAccessToken): Future[Unit]
-  def listClubcards()(implicit token: SsoAccessToken): Future[List[Clubcard]]
+  def listClubcards()(implicit token: SsoAccessToken): Future[Seq[Clubcard]]
 }
 
 class DefaultClubcardService(config: MidasConfig, client: Client)(implicit ec: ExecutionContext) extends ClubcardService
   with Json4sJacksonSupport with StrictLogging {
 
-  override implicit def json4sJacksonFormats: Formats = DefaultFormats + pascalToCamelConverter
+  override implicit def json4sJacksonFormats: Formats = DefaultFormats + ClubcardList.fieldSerializer + pascalToCamelConverter
 
   val serviceBase = config.url
 
@@ -41,8 +41,6 @@ class DefaultClubcardService(config: MidasConfig, client: Client)(implicit ec: E
     client.unitRequest(req, Some(OAuth2BearerToken(token.value)))
   }
 
-  override def listClubcards()(implicit token: SsoAccessToken): Future[List[Clubcard]] = ???
-
   override def clubcardDetails(number: String)(implicit token: SsoAccessToken): Future[Clubcard] = {
     val req = Get(s"$serviceBase/api/wallet/clubcards/$number")
     client.dataRequest[Clubcard](req, Some(OAuth2BearerToken(token.value)))
@@ -51,5 +49,10 @@ class DefaultClubcardService(config: MidasConfig, client: Client)(implicit ec: E
   override def primaryClubcard()(implicit token: SsoAccessToken): Future[Clubcard] = {
     val req = Get(s"$serviceBase/api/wallet/clubcards/primary")
     client.dataRequest[Clubcard](req, Some(OAuth2BearerToken(token.value)))
+  }
+
+  override def listClubcards()(implicit token: SsoAccessToken): Future[Seq[Clubcard]] = {
+    val req = Get(s"$serviceBase/api/wallet/clubcards")
+  client.dataRequest[ClubcardList](req, Some(OAuth2BearerToken(token.value))).map(_.clubcards)
   }
 }

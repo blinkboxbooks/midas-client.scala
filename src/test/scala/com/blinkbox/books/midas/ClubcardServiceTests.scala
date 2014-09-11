@@ -133,4 +133,25 @@ class ClubcardServiceTests extends FlatSpec with ScalaFutures with FailHelper wi
     val ex = failingWith[NotFoundException](service.makePrimary("notInMyWallet")(validToken))
     assert(ex.error == None)
   }
+
+  it should "return a list of clubcards in user's wallet" in new ClubcardServiceEnvironment {
+    provideJsonResponse(OK, """{"_embedded":[{"DisplayName":"name1","CardNumber":"634004356141956191","IsPrimaryCard":true,"IsPrivilegeCard":false},{"DisplayName":"name2","CardNumber":"634004691281116895","IsPrimaryCard":false,"IsPrivilegeCard":false}]}""")
+
+    val card1 = Clubcard("634004356141956191", "name1", isPrimaryCard = true, isPrivilegeCard = false)
+    val card2 = Clubcard("634004691281116895", "name2", isPrimaryCard = false, isPrivilegeCard = false)
+
+    whenReady(service.listClubcards()(validToken)){ res =>
+      assert(res == List(card1, card2))
+      verify(mockSendReceive).apply(Get(s"${appConfig.url}/api/wallet/clubcards").withHeaders(Authorization(OAuth2BearerToken(validToken.value))))
+    }
+  }
+
+  it should "return an empty list if there are no clubcards in user's wallet" in new ClubcardServiceEnvironment {
+    provideJsonResponse(OK, """{}""")
+
+    whenReady(service.listClubcards()(validToken)) { res =>
+      println(res)
+      assert(res == List.empty)
+    }
+  }
 }

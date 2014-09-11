@@ -104,6 +104,12 @@ object ErrorMessage {
   val fieldSerializer = FieldSerializer[ErrorMessage](renameTo("message", "Message"), renameFrom("Message", "message"))
 }
 
+case class ClubcardList(clubcards: Seq[Clubcard])
+
+object ClubcardList {
+  val fieldSerializer = FieldSerializer[ClubcardList](renameTo("clubcards", "_embedded"), renameFrom("_embedded", "clubcards"))
+}
+
 case class AddClubcardRequest(cardNumber: String, displayName: String, isPrimaryCard: Boolean)
 
 // Exceptions raised by client API.
