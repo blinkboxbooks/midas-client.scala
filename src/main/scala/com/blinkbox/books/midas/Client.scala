@@ -7,8 +7,8 @@ import org.json4s.FieldSerializer.{renameFrom, renameTo}
 import org.json4s.JsonAST.JField
 import org.json4s.{DefaultFormats, FieldSerializer}
 import spray.client.pipelining._
-import spray.http._
 import spray.http.StatusCodes._
+import spray.http._
 import spray.httpx.unmarshalling._
 import spray.httpx.{Json4sJacksonSupport, UnsuccessfulResponseException}
 
@@ -103,14 +103,6 @@ case class ErrorMessage(message: String)
 object ErrorMessage {
   val fieldSerializer = FieldSerializer[ErrorMessage](renameTo("message", "Message"), renameFrom("Message", "message"))
 }
-
-case class ClubcardList(clubcards: Seq[Clubcard])
-
-object ClubcardList {
-  val fieldSerializer = FieldSerializer[ClubcardList](renameTo("clubcards", "_embedded"), renameFrom("_embedded", "clubcards"))
-}
-
-case class AddClubcardRequest(cardNumber: String, displayName: String, isPrimaryCard: Boolean)
 
 // Exceptions raised by client API.
 class BadRequestException(val error: ErrorMessage, cause: Throwable = null) extends RuntimeException(error.toString, cause)

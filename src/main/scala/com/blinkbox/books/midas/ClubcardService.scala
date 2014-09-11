@@ -2,6 +2,7 @@ package com.blinkbox.books.midas
 
 import com.blinkbox.books.midas.SerializationHelpers.pascalToCamelConverter
 import com.typesafe.scalalogging.slf4j.StrictLogging
+import org.json4s.FieldSerializer._
 import org.json4s._
 import spray.http.OAuth2BearerToken
 import spray.httpx.Json4sJacksonSupport
@@ -23,7 +24,7 @@ class DefaultClubcardService(config: MidasConfig, client: Client)(implicit ec: E
 
   override implicit def json4sJacksonFormats: Formats = DefaultFormats + ClubcardList.fieldSerializer + pascalToCamelConverter
 
-  val serviceBase = config.url
+  private val serviceBase = config.url
 
   override def addClubcard(number: String, displayName: String, makePrimary: Boolean = true)(implicit token: SsoAccessToken): Future[Clubcard] = {
     val reqData = AddClubcardRequest(number, displayName, makePrimary)
@@ -56,3 +57,11 @@ class DefaultClubcardService(config: MidasConfig, client: Client)(implicit ec: E
   client.dataRequest[ClubcardList](req, Some(OAuth2BearerToken(token.value))).map(_.clubcards)
   }
 }
+
+case class ClubcardList(clubcards: Seq[Clubcard])
+
+object ClubcardList {
+  val fieldSerializer = FieldSerializer[ClubcardList](renameTo("clubcards", "_embedded"), renameFrom("_embedded", "clubcards"))
+}
+
+case class AddClubcardRequest(cardNumber: String, displayName: String, isPrimaryCard: Boolean)
