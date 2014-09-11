@@ -34,7 +34,7 @@ trait SprayClient extends Client with Json4sJacksonSupport {
   implicit lazy val sys = system
   implicit lazy val executionContext = ec
 
-  implicit def json4sJacksonFormats = DefaultFormats + ErrorMessage.errorMessageSerializer
+  implicit def json4sJacksonFormats = DefaultFormats + ErrorMessage.fieldSerializer
 
   protected def doSendReceive(implicit refFactory: ActorRefFactory, ec: ExecutionContext): SendReceive = sendReceive(refFactory, ec)
 
@@ -101,8 +101,10 @@ class DefaultClient(val config: MidasConfig)(implicit val ec: ExecutionContext, 
 case class ErrorMessage(message: String)
 
 object ErrorMessage {
-  val errorMessageSerializer = FieldSerializer[ErrorMessage](renameTo("message", "Message"), renameFrom("Message", "message"))
+  val fieldSerializer = FieldSerializer[ErrorMessage](renameTo("message", "Message"), renameFrom("Message", "message"))
 }
+
+case class AddClubcardRequest(cardNumber: String, displayName: String, isPrimaryCard: Boolean)
 
 // Exceptions raised by client API.
 class BadRequestException(val error: ErrorMessage, cause: Throwable = null) extends RuntimeException(error.toString, cause)
