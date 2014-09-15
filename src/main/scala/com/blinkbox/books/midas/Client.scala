@@ -7,8 +7,8 @@ import org.json4s.FieldSerializer.{renameFrom, renameTo}
 import org.json4s.JsonAST.JField
 import org.json4s.{DefaultFormats, FieldSerializer}
 import spray.client.pipelining._
-import spray.http._
 import spray.http.StatusCodes._
+import spray.http._
 import spray.httpx.unmarshalling._
 import spray.httpx.{Json4sJacksonSupport, UnsuccessfulResponseException}
 
@@ -34,7 +34,7 @@ trait SprayClient extends Client with Json4sJacksonSupport {
   implicit lazy val sys = system
   implicit lazy val executionContext = ec
 
-  implicit def json4sJacksonFormats = DefaultFormats + ErrorMessage.errorMessageSerializer
+  implicit def json4sJacksonFormats = DefaultFormats + ErrorMessage.fieldSerializer
 
   protected def doSendReceive(implicit refFactory: ActorRefFactory, ec: ExecutionContext): SendReceive = sendReceive(refFactory, ec)
 
@@ -52,19 +52,27 @@ trait SprayClient extends Client with Json4sJacksonSupport {
   protected def dataPipeline[T : FromResponseUnmarshaller](credentials: Option[HttpCredentials]) =
     basePipeline(credentials) ~> unmarshal[T]
 
-  override def unitRequest(req: HttpRequest, credentials: Option[HttpCredentials]): Future[Unit] = unitPipeline(credentials)(req)
+  override def unitRequest(req: HttpRequest, credentials: Option[HttpCredentials]): Future[Unit] =
+    unitPipeline(credentials)(req)
+      .transform(identity, exceptionTransformer)
 
   override def dataRequest[T : FromResponseUnmarshaller](req: HttpRequest, credentials: Option[HttpCredentials]): Future[T] =
     dataPipeline(credentials).apply(req)
       .transform(identity, exceptionTransformer)
 
   def exceptionTransformer: Throwable => Throwable = {
-    case ex: UnsuccessfulResponseException if ex.response.status == Unauthorized =>
-      val tmpChallenge = HttpChallenge(scheme = "Bearer", realm = "", Map("not" -> "available")) // TODO: change once Midas adds WWW-Authenticate headers
-      new UnauthorizedException(parseErrorMessage(ex.response.entity), tmpChallenge, ex)
-    case ex: UnsuccessfulResponseException if ex.response.status == NotFound =>
-      val errorMsg = if (ex.response.entity.nonEmpty) Some(parseErrorMessage(ex.response.entity)) else None
-      new NotFoundException(errorMsg, ex)
+    case ex: UnsuccessfulResponseException =>
+      ex.response.status match {
+        case BadRequest => new BadRequestException(parseErrorMessage(ex.response.entity), ex)
+        case Unauthorized =>
+          val tmpChallenge = HttpChallenge(scheme = "Bearer", realm = "", Map("not" -> "available")) // TODO: change once Midas adds WWW-Authenticate headers
+          new UnauthorizedException(parseErrorMessage(ex.response.entity), tmpChallenge, ex)
+        case NotFound =>
+          val errorMsg = if (ex.response.entity.nonEmpty) Some(parseErrorMessage(ex.response.entity)) else None
+          new NotFoundException(errorMsg, ex)
+        case Conflict => new ConflictException(parseErrorMessage(ex.response.entity), ex)
+        case other => ex
+      }
     case other => other
   }
 
@@ -76,7 +84,7 @@ object SerializationHelpers {
   private val pascalToCamel = CaseFormat.UPPER_CAMEL.converterTo(CaseFormat.LOWER_CAMEL).convert _
   private val camelToPascal = CaseFormat.LOWER_CAMEL.converterTo(CaseFormat.UPPER_CAMEL).convert _
 
-  val pascalToCamelConverter = FieldSerializer[AnyRef](
+  val pascalToCamelCaseConverter = FieldSerializer[AnyRef](
     deserializer = { case JField(name, v) => JField(pascalToCamel(name), v) },
     serializer = { case (name, v) => Some((camelToPascal(name), v)) }
   )
@@ -93,9 +101,11 @@ class DefaultClient(val config: MidasConfig)(implicit val ec: ExecutionContext, 
 case class ErrorMessage(message: String)
 
 object ErrorMessage {
-  val errorMessageSerializer = FieldSerializer[ErrorMessage](renameTo("message", "Message"), renameFrom("Message", "message"))
+  val fieldSerializer = FieldSerializer[ErrorMessage](renameTo("message", "Message"), renameFrom("Message", "message"))
 }
 
 // Exceptions raised by client API.
+class BadRequestException(val error: ErrorMessage, cause: Throwable = null) extends RuntimeException(error.toString, cause)
 class NotFoundException(val error: Option[ErrorMessage], cause: Throwable = null) extends RuntimeException(error.toString, cause)
 class UnauthorizedException(val error: ErrorMessage, val challenge: HttpChallenge, cause: Throwable = null) extends RuntimeException(error.toString, cause)
+class ConflictException(val error: ErrorMessage, cause: Throwable = null) extends RuntimeException(error.toString, cause)

@@ -15,17 +15,17 @@ val buildSettings = Seq(
 
 val dependencySettings = Seq(
   libraryDependencies ++= {
-    val akkaV = "2.3.4"
+    val akkaV = "2.3.6"
     val sprayV = "1.3.1"
     Seq(
-      "io.spray"                  %   "spray-client"          % sprayV,
+      "io.spray"                  %%  "spray-client"          % sprayV,
       "com.typesafe.akka"         %%  "akka-slf4j"            % akkaV,
       "com.google.guava"          %   "guava"                 % "18.0",
       "com.google.code.findbugs"  %   "jsr305"                % "3.0.0",
-      "com.blinkbox.books"        %%  "common-config"         % "1.0.2",
+      "com.blinkbox.books"        %%  "common-config"         % "1.2.1",
       "com.blinkbox.books"        %%  "common-json"           % "0.2.1",
       "com.blinkbox.books"        %%  "common-scala-test"     % "0.3.0"   % Test,
-      "io.spray"                  %   "spray-testkit"         % sprayV    % Test
+      "io.spray"                  %%  "spray-testkit"         % sprayV    % Test
     )
   }
 )

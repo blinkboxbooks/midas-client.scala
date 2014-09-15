@@ -2,6 +2,7 @@ package com.blinkbox.books.midas
 
 import com.blinkbox.books.test.{FailHelper, MockitoSyrup}
 import org.junit.runner.RunWith
+import org.mockito.ArgumentCaptor
 import org.mockito.Mockito._
 import org.scalatest.FlatSpec
 import org.scalatest.concurrent.ScalaFutures
@@ -9,11 +10,12 @@ import org.scalatest.junit.JUnitRunner
 import org.scalatest.time.{Millis, Seconds, Span}
 import spray.can.Http.ConnectionException
 import spray.http.HttpHeaders.Authorization
-import spray.http._
-import spray.httpx.RequestBuilding.Get
 import spray.http.StatusCodes._
+import spray.http._
+import spray.httpx.RequestBuilding.{Delete, Get, Put}
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
 
 class ClubcardServiceEnvironment extends TestEnvironment {
   val service = new DefaultClubcardService(appConfig, client)
@@ -28,16 +30,11 @@ class ClubcardServiceTests extends FlatSpec with ScalaFutures with FailHelper wi
 
 
   "A clubcard service client" should "return a valid clubcard details" in new ClubcardServiceEnvironment {
-    provideJsonResponse(OK, """{
-        |"DisplayName":"testName",
-        |"CardNumber":"634004553765751581",
-        |"IsPrimaryCard":true,
-        |"IsPrivilegeCard":false
-        |}""".stripMargin)
+    provideJsonResponse(OK, s"""{"DisplayName":"testName","CardNumber":"$validCardNumber","IsPrimaryCard":true,"IsPrivilegeCard":false}""")
 
     whenReady(service.clubcardDetails(validCardNumber)(validToken)) { res =>
-      assert(res == Clubcard("634004553765751581", "testName", isPrimaryCard = true, isPrivilegeCard = false))
-      verify(mockSendReceive).apply(Get(s"${appConfig.url}/api/wallet/clubcards/634004553765751581").withHeaders(Authorization(OAuth2BearerToken(validToken.value))))
+      assert(res == Clubcard(validCardNumber, "testName", isPrimaryCard = true, isPrivilegeCard = false))
+      verify(mockSendReceive).apply(Get(s"${appConfig.url}/api/wallet/clubcards/$validCardNumber").withHeaders(Authorization(OAuth2BearerToken(validToken.value))))
     }
   }
 
@@ -54,17 +51,106 @@ class ClubcardServiceTests extends FlatSpec with ScalaFutures with FailHelper wi
     assert(ex.challenge == HttpChallenge("Bearer", realm = "", Map("not" -> "available")))
   }
 
-  it should "throw a NotFoundException when getting clubcard details for a user that has no wallet" in new ClubcardServiceEnvironment {
+  it should "throw NotFoundException when getting clubcard details for a user that has no wallet" in new ClubcardServiceEnvironment {
     provideJsonResponse(NotFound, """{"Message": "Wallet not found"}""")
 
     val ex = failingWith[NotFoundException](service.clubcardDetails(validCardNumber)(validToken))
     assert(ex.error == Some(ErrorMessage("Wallet not found")))
   }
 
-  it should "throw a NotFoundException when getting clubcard details that is not in user's wallet" in new ClubcardServiceEnvironment {
+  it should "throw NotFoundException when getting clubcard details that is not in user's wallet" in new ClubcardServiceEnvironment {
     provideResponse(NotFound)
 
     val ex = failingWith[NotFoundException](service.clubcardDetails(validCardNumber)(validToken))
     assert(ex.error == None)
+  }
+
+  it should "return a primary clubcard if there is at least one clubcard in user's wallet" in new ClubcardServiceEnvironment {
+    provideJsonResponse(StatusCodes.OK, s"""{"DisplayName":"primary card","CardNumber":"$validCardNumber","IsPrimaryCard":true,"IsPrivilegeCard":false}""")
+
+    whenReady(service.primaryClubcard()(validToken)) { res =>
+      assert(res == Clubcard(validCardNumber, "primary card", isPrimaryCard = true, isPrivilegeCard = false))
+      verify(mockSendReceive).apply(Get(s"${appConfig.url}/api/wallet/clubcards/primary").withHeaders(Authorization(OAuth2BearerToken(validToken.value))))
+    }
+  }
+
+  it should "throw NotFoundException when getting primary clubcard if there are no clubcards in user's wallet" in new ClubcardServiceEnvironment {
+    provideResponse(StatusCodes.NotFound)
+
+    val ex = failingWith[NotFoundException](service.primaryClubcard()(validToken))
+    assert(ex.error == None)
+  }
+
+  it should "add a new valid clubcard to user's wallet" in new ClubcardServiceEnvironment {
+    provideJsonResponse(Created, s"""{"DisplayName":"test card","CardNumber":"$validCardNumber","IsPrimaryCard":true,"IsPrivilegeCard":false}""")
+
+    whenReady(service.addClubcard(validCardNumber, "test card")(validToken)) { res =>
+      assert(res == Clubcard(validCardNumber, "test card", isPrimaryCard = true, isPrivilegeCard = false))
+
+      val requestCaptor = ArgumentCaptor.forClass(classOf[HttpRequest])
+      verify(mockSendReceive).apply(requestCaptor.capture)
+      assert(requestCaptor.getValue.entity.toOption.map(_.contentType) == Some(ContentTypes.`application/json`))
+    }
+  }
+
+  // TODO: Midas returns 400 BadRequest at the moment
+  ignore should "throw ConflictException when adding a valid clubcard that was registered before" in new ClubcardServiceEnvironment {
+    provideJsonResponse(BadRequest, """{"Message":"Clubcard already registered with service"}""")
+
+    val ex = failingWith[ConflictException](service.addClubcard(validCardNumber, "test card")(validToken))
+    assert(ex.error == ErrorMessage("Clubcard already registered with service"))
+  }
+
+  it should "throw BadRequestException when adding invalid clubcard to user's wallet" in new ClubcardServiceEnvironment {
+    provideJsonResponse(BadRequest, """{"Message":"The request is invalid."}""")
+
+    val ex = failingWith[BadRequestException](service.addClubcard(validCardNumber, "test card")(validToken))
+    assert(ex.error == ErrorMessage("The request is invalid."))
+  }
+
+  it should "delete an existing clubcard from user's wallet" in new ClubcardServiceEnvironment {
+    provideResponse(NoContent)
+    val res = service.deleteClubcard(validCardNumber)(validToken)
+    res.isReadyWithin(100.millis)
+    verify(mockSendReceive).apply(Delete(s"${appConfig.url}/api/wallet/clubcards/$validCardNumber").withHeaders(Authorization(OAuth2BearerToken(validToken.value))))
+  }
+
+  it should "throw NotFoundException when deleting a clubcard that is not in user's wallet" in new ClubcardServiceEnvironment {
+    provideResponse(NotFound)
+    val ex = failingWith[NotFoundException](service.deleteClubcard("notInMyWallet")(validToken))
+    assert(ex.error == None)
+  }
+
+  it should "make an existing clubcard primary" in new ClubcardServiceEnvironment {
+    provideResponse(NoContent)
+    val res = service.makePrimary(validCardNumber)(validToken)
+    res.isReadyWithin(100.millis)
+    verify(mockSendReceive).apply(Put(s"${appConfig.url}/api/wallet/clubcards/$validCardNumber").withHeaders(Authorization(OAuth2BearerToken(validToken.value))))
+  }
+
+  it should "throw NotFoundException when making a clubcard that is not in user's wallet a primary card" in new ClubcardServiceEnvironment {
+    provideResponse(NotFound)
+    val ex = failingWith[NotFoundException](service.makePrimary("notInMyWallet")(validToken))
+    assert(ex.error == None)
+  }
+
+  it should "return a list of clubcards in user's wallet" in new ClubcardServiceEnvironment {
+    provideJsonResponse(OK, """{"_embedded":[{"DisplayName":"name1","CardNumber":"634004356141956191","IsPrimaryCard":true,"IsPrivilegeCard":false},{"DisplayName":"name2","CardNumber":"634004691281116895","IsPrimaryCard":false,"IsPrivilegeCard":false}]}""")
+
+    val card1 = Clubcard("634004356141956191", "name1", isPrimaryCard = true, isPrivilegeCard = false)
+    val card2 = Clubcard("634004691281116895", "name2", isPrimaryCard = false, isPrivilegeCard = false)
+
+    whenReady(service.listClubcards()(validToken)){ res =>
+      assert(res == List(card1, card2))
+      verify(mockSendReceive).apply(Get(s"${appConfig.url}/api/wallet/clubcards").withHeaders(Authorization(OAuth2BearerToken(validToken.value))))
+    }
+  }
+
+  it should "return an empty list if there are no clubcards in user's wallet" in new ClubcardServiceEnvironment {
+    provideJsonResponse(OK, """{}""")
+
+    whenReady(service.listClubcards()(validToken)) { res =>
+      assert(res == List.empty)
+    }
   }
 }
