@@ -84,7 +84,7 @@ object SerializationHelpers {
   private val pascalToCamel = CaseFormat.UPPER_CAMEL.converterTo(CaseFormat.LOWER_CAMEL).convert _
   private val camelToPascal = CaseFormat.LOWER_CAMEL.converterTo(CaseFormat.UPPER_CAMEL).convert _
 
-  val pascalToCamelConverter = FieldSerializer[AnyRef](
+  val pascalToCamelCaseConverter = FieldSerializer[AnyRef](
     deserializer = { case JField(name, v) => JField(pascalToCamel(name), v) },
     serializer = { case (name, v) => Some((camelToPascal(name), v)) }
   )

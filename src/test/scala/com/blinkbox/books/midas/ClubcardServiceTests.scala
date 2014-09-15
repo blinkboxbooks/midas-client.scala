@@ -150,7 +150,6 @@ class ClubcardServiceTests extends FlatSpec with ScalaFutures with FailHelper wi
     provideJsonResponse(OK, """{}""")
 
     whenReady(service.listClubcards()(validToken)) { res =>
-      println(res)
       assert(res == List.empty)
     }
   }
