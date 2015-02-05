@@ -1,4 +1,4 @@
-midas-client
+Digital Wallet service client
 ============
 
-Client library for the Digital Wallet
+Basic plumbing for the Digital Wallet client.
